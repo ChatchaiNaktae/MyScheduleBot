@@ -135,5 +135,5 @@ async def myweek(interaction: discord.Interaction):
 
 keep_alive()
 # ดึง Token จาก Environment Variable ที่ตั้งไว้ในเว็บ Cloud
-DISCORD_TOKEN = os.getenv('MTQ3ODY3MjgzMjkyNDg4MDk1Nw.GMjBWq.cw2AfyXdZXIsbXZ-cMIw2PpPfj_Edp3hr5ZKSU')
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 bot.run(DISCORD_TOKEN)
