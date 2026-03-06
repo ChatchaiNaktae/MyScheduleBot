@@ -4,6 +4,7 @@ import datetime
 import pytz
 import os
 import json
+import aiohttp
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -296,6 +297,57 @@ async def skip_reset(interaction: discord.Interaction, subject: str):
             f"🔄 **รีเซ็ต!** ลบประวัติการขาดเรียนวิชา **{subject}** เรียบร้อยแล้วครับ")
     else:
         await interaction.response.send_message(f"❌ **หาไม่เจอ!** ไม่พบประวัติการขาดเรียนวิชา **{subject}** ในระบบครับ")
+
+# Command to check weather in Bang Phra, Chon Buri
+@bot.tree.command(name="weather", description="Check current weather in Bang Phra, Chon Buri")
+async def weather(interaction: discord.Interaction):
+    # พิกัด GPS ของ มทร.ตะวันออก วิทยาเขตบางพระ
+    lat = 13.2148
+    lon = 100.9416
+
+    # URL ของพนักงานเสิร์ฟ (API) ที่เราจะไปขอข้อมูล
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+
+    # บอก Discord ให้หมุนติ้วๆ รอแป๊บนึง (เผื่อเว็บสภาพอากาศตอบกลับช้า บอทจะได้ไม่ Error)
+    await interaction.response.defer()
+
+    # เริ่มกระบวนการส่งตัวแทนไปดึงข้อมูลจากเว็บ
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:  # ถ้าได้รหัส 200 แปลว่าเว็บทำงานปกติ
+                data = await response.json()  # แปลงร่างข้อมูลที่ได้มาให้อยู่ในรูป JSON (Dictionary)
+
+                # แกะกล่องเอาเฉพาะข้อมูลที่เราอยากได้
+                current = data.get("current_weather", {})
+                temp = current.get("temperature", "-")
+                wind_speed = current.get("windspeed", "-")
+                weather_code = current.get("weathercode", 0)
+
+                # แปลงรหัสสภาพอากาศ (Weather Code) เป็นภาษาไทยและอีโมจิ
+                condition = "ท้องฟ้าแจ่มใส ☀️"
+                if weather_code in [1, 2, 3]:
+                    condition = "มีเมฆบางส่วน ⛅"
+                elif weather_code in [45, 48]:
+                    condition = "มีหมอก 🌫️"
+                elif weather_code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
+                    condition = "ฝนตก 🌧️ (อย่าลืมพกเสื้อกันฝน!)"
+                elif weather_code in [71, 73, 75]:
+                    condition = "หิมะตก (ในไทยเนี่ยนะ!) ❄️"
+                elif weather_code in [95, 96, 99]:
+                    condition = "พายุฝนฟ้าคะนอง ⛈️ (อันตราย! งดแว้นเด็ดขาด)"
+
+                # จัดหน้าตาข้อความตอบกลับ
+                msg = (
+                    "🌤️ **รายงานสภาพอากาศ ณ บางพระ ชลบุรี** 🌤️\n"
+                    f"🌡️ อุณหภูมิ: **{temp} °C**\n"
+                    f"🌬️ ความเร็วลม: **{wind_speed} km/h**\n"
+                    f"👀 สภาพอากาศ: **{condition}**"
+                )
+
+                # ใช้ followup.send เพราะตอนแรกเราสั่ง defer() รอไว้แล้ว
+                await interaction.followup.send(msg)
+            else:
+                await interaction.followup.send("❌ บอทติดต่อกรมอุตุฯ ไม่ได้ครับ ลองใหม่อีกครั้งนะ")
 
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
