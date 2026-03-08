@@ -359,6 +359,66 @@ async def reminder_del(interaction: discord.Interaction, rmd_id: int):
 
     await interaction.response.send_message(f"❌ **หาไม่เจอ!** ไม่มีกิจกรรมรหัส {rmd_id} ในระบบครับ")
 
+# Command to edit an existing reminder
+@bot.tree.command(name="reminder_edit", description="Edit an existing reminder by ID")
+async def reminder_edit(
+        interaction: discord.Interaction,
+        rmd_id: int,
+        name: str = None,
+        start_date: str = None,
+        end_date: str = None,
+        start_time: str = None,
+        end_time: str = None
+):
+    data = load_json(REMINDER_FILE)
+
+    if "reminders" not in data or len(data["reminders"]) == 0:
+        await interaction.response.send_message("❌ ไม่มีการแจ้งเตือนในระบบให้แก้ไขครับ!")
+        return
+
+    # 1. ค้นหากิจกรรมที่ต้องการแก้ไขจาก ID
+    target_rmd = None
+    for rmd in data["reminders"]:
+        if rmd["id"] == rmd_id:
+            target_rmd = rmd
+            break
+
+    if target_rmd is None:
+        await interaction.response.send_message(f"❌ **หาไม่เจอ!** ไม่มีกิจกรรมรหัส {rmd_id} ในระบบครับ")
+        return
+
+    # 2. อัปเดตข้อมูล (ถ้าผู้ใช้พิมพ์ข้อมูลใหม่มาให้แก้ ถ้าไม่ได้พิมพ์มา ให้ใช้ของเดิม)
+    if name is not None:
+        target_rmd["name"] = name
+    if start_date is not None:
+        target_rmd["start_date"] = start_date
+    if end_date is not None:
+        target_rmd["end_date"] = end_date
+    if start_time is not None:
+        target_rmd["start_time"] = start_time
+    if end_time is not None:
+        target_rmd["end_time"] = end_time
+
+    # 3. ตรวจสอบความถูกต้องของวันที่และเวลาใหม่ (ป้องกันการพิมพ์ผิดฟอร์แมต)
+    s_dt = parse_datetime_support_be(target_rmd["start_date"], target_rmd["start_time"])
+    e_dt = parse_datetime_support_be(target_rmd["end_date"], target_rmd["end_time"])
+
+    if s_dt is None or e_dt is None:
+        await interaction.response.send_message(
+            "❌ **รูปแบบวันที่หรือเวลาผิดพลาด!** การแก้ไขถูกยกเลิกครับ (กรุณาใช้ วัน/เดือน/ปี และ ชั่วโมง:นาที)")
+        return
+
+    # 4. บันทึกข้อมูลกลับลงไฟล์
+    save_json(REMINDER_FILE, data)
+
+    msg = (
+        f"✏️ **แก้ไขกิจกรรมรหัส {rmd_id} เรียบร้อย!**\n"
+        f"📌 **กิจกรรม:** {target_rmd['name']}\n"
+        f"🟢 **เริ่ม:** {target_rmd['start_date']} เวลา {target_rmd['start_time']} น.\n"
+        f"🔴 **สิ้นสุด:** {target_rmd['end_date']} เวลา {target_rmd['end_time']} น."
+    )
+    await interaction.response.send_message(msg)
+
 # ==========================================
 # Slash Commands: Utilities
 # ==========================================
